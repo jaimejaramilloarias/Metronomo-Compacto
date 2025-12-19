@@ -65,6 +65,7 @@ function getSubdivisionsPerBeat(value: Subdivision) {
 
 const PRESET_SLOTS = 4;
 const STORAGE_KEY = "metronome-presets-v1";
+const LAST_CONFIG_KEY = "metronome-last-config-v1";
 const EXPORT_VERSION = 1;
 
 function normalizeBooleanArray(value: unknown, length: number) {
@@ -106,6 +107,14 @@ function normalizeConfig(raw: any) {
     visualPulse,
     accents,
   };
+}
+
+function useSyncedRef<T>(value: T) {
+  const ref = useRef(value);
+  useEffect(() => {
+    ref.current = value;
+  }, [value]);
+  return ref;
 }
 
 // Minimal self-tests for pure helpers (only in NODE_ENV=test, server-side)
@@ -226,58 +235,31 @@ export default function AdvancedMetronomeUI() {
   const currentStepRef = useRef(0);
   const measureStartRef = useRef(0);
   const rafIdRef = useRef<number | null>(null);
-  const bpmRef = useRef(bpm);
-  const beatsRef = useRef(beats);
-  const unitRef = useRef(unit);
-  const subdivisionRef = useRef(subdivision);
-  const swingRef = useRef(swing);
-  const accentsRef = useRef(accents);
-  const volumeRef = useRef(volume);
-  const polyEnabledRef = useRef(polyEnabled);
-  const polyBeatsRef = useRef(polyBeats);
-  const polySubdivisionRef = useRef(polySubdivision);
-  const polyVolumeRef = useRef(polyVolume);
-  const visualPulseRef = useRef(visualPulse);
-  const tempoLockRef = useRef(tempoLock);
+  const bpmRef = useSyncedRef(bpm);
+  const beatsRef = useSyncedRef(beats);
+  const unitRef = useSyncedRef(unit);
+  const subdivisionRef = useSyncedRef(subdivision);
+  const swingRef = useSyncedRef(swing);
+  const accentsRef = useSyncedRef(accents);
+  const volumeRef = useSyncedRef(volume);
+  const polyEnabledRef = useSyncedRef(polyEnabled);
+  const polyBeatsRef = useSyncedRef(polyBeats);
+  const polySubdivisionRef = useSyncedRef(polySubdivision);
+  const polyVolumeRef = useSyncedRef(polyVolume);
+  const visualPulseRef = useSyncedRef(visualPulse);
+  const tempoLockRef = useSyncedRef(tempoLock);
   const presetsRef = useRef<any[]>([]);
-  const trainingModeRef = useRef(trainingMode);
-  const trainingStepRef = useRef(trainingStep);
-  const trainingEveryRef = useRef(trainingEvery);
+  const trainingModeRef = useSyncedRef(trainingMode);
+  const trainingStepRef = useSyncedRef(trainingStep);
+  const trainingEveryRef = useSyncedRef(trainingEvery);
   const measureCountRef = useRef(0);
   const polyNextNoteTimeRef = useRef(0);
   const polyStepRef = useRef(0);
-
-  useEffect(() => {
-    bpmRef.current = bpm;
-  }, [bpm]);
-
-  useEffect(() => {
-    tempoLockRef.current = tempoLock;
-  }, [tempoLock]);
-
-  useEffect(() => {
-    beatsRef.current = beats;
-  }, [beats]);
+  const phaseRef = useRef(phase);
 
   useEffect(() => {
     setAccents((prev) => buildAccentArray(beats, prev));
   }, [beats]);
-
-  useEffect(() => {
-    unitRef.current = unit;
-  }, [unit]);
-
-  useEffect(() => {
-    subdivisionRef.current = subdivision;
-  }, [subdivision]);
-
-  useEffect(() => {
-    swingRef.current = swing;
-  }, [swing]);
-
-  useEffect(() => {
-    accentsRef.current = accents;
-  }, [accents]);
 
   useEffect(() => {
     volumeRef.current = volume;
@@ -286,10 +268,6 @@ export default function AdvancedMetronomeUI() {
       masterGainRef.current.gain.setTargetAtTime(gain, masterGainRef.current.context.currentTime, 0.01);
     }
   }, [volume]);
-
-  useEffect(() => {
-    polyEnabledRef.current = polyEnabled;
-  }, [polyEnabled]);
 
   useEffect(() => {
     if (!polyEnabled) return;
@@ -301,32 +279,8 @@ export default function AdvancedMetronomeUI() {
   }, [polyEnabled]);
 
   useEffect(() => {
-    polyBeatsRef.current = polyBeats;
-  }, [polyBeats]);
-
-  useEffect(() => {
-    polySubdivisionRef.current = polySubdivision;
-  }, [polySubdivision]);
-
-  useEffect(() => {
-    polyVolumeRef.current = polyVolume;
-  }, [polyVolume]);
-
-  useEffect(() => {
-    visualPulseRef.current = visualPulse;
-  }, [visualPulse]);
-
-  useEffect(() => {
-    trainingModeRef.current = trainingMode;
-  }, [trainingMode]);
-
-  useEffect(() => {
-    trainingStepRef.current = trainingStep;
-  }, [trainingStep]);
-
-  useEffect(() => {
-    trainingEveryRef.current = trainingEvery;
-  }, [trainingEvery]);
+    phaseRef.current = phase;
+  }, [phase]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -387,6 +341,17 @@ export default function AdvancedMetronomeUI() {
     setAccents(normalizeBooleanArray(config.accents, next.beats));
   };
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(LAST_CONFIG_KEY);
+    if (!stored) return;
+    try {
+      applyConfig(JSON.parse(stored));
+    } catch {
+      window.localStorage.removeItem(LAST_CONFIG_KEY);
+    }
+  }, []);
+
   const persistPresets = (presets: any[]) => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(presets));
@@ -437,6 +402,29 @@ export default function AdvancedMetronomeUI() {
       window.alert("Invalid metronome config JSON.");
     }
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const timeout = window.setTimeout(() => {
+      window.localStorage.setItem(
+        LAST_CONFIG_KEY,
+        JSON.stringify(normalizeConfig(getConfigSnapshot()))
+      );
+    }, 200);
+    return () => window.clearTimeout(timeout);
+  }, [
+    bpm,
+    ts,
+    subdivision,
+    swing,
+    volume,
+    polyEnabled,
+    polyBeats,
+    polySubdivision,
+    polyVolume,
+    visualPulse,
+    accents,
+  ]);
 
   const scheduleClick = (
     time: number,
@@ -561,8 +549,13 @@ export default function AdvancedMetronomeUI() {
       const measureDuration = computeMeasureDuration();
       const elapsed = Math.max(0, context.currentTime - measureStartRef.current);
       const progress = measureDuration > 0 ? (elapsed / measureDuration) * 100 : 0;
-      setPhase(clamp(progress, 0, 100));
-    } else {
+      const nextPhase = clamp(progress, 0, 100);
+      if (Math.abs(nextPhase - phaseRef.current) > 0.1) {
+        phaseRef.current = nextPhase;
+        setPhase(nextPhase);
+      }
+    } else if (phaseRef.current !== 0) {
+      phaseRef.current = 0;
       setPhase(0);
     }
 

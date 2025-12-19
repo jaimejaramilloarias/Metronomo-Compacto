@@ -9,3 +9,6 @@ Tareas progresivas del metronomo
 [7] [x] Agregar soporte para polirritmias avanzadas.
 [8] [x] Añadir controles configurables de polirritmia y volumen secundario.
 [9] [x] Optimizar el scheduler para sincronizar capas y refs.
+[10] [x] Guardar/restaurar automáticamente la última configuración activa.
+[11] [x] Reducir renders del scheduler con refs sincronizadas y fase protegida.
+[12] [x] Debounce de persistencia local para evitar escrituras excesivas.
