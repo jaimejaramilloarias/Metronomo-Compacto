@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +43,21 @@ function formatSwingLabel(v: number) {
   if (v < 45) return "Light";
   if (v < 60) return "Medium";
   return "Heavy";
+}
+
+function getSubdivisionsPerBeat(value: "1/4" | "1/8" | "1/8T" | "1/16") {
+  switch (value) {
+    case "1/4":
+      return 1;
+    case "1/8":
+      return 2;
+    case "1/8T":
+      return 3;
+    case "1/16":
+      return 4;
+    default:
+      return 2;
+  }
 }
 
 // Minimal self-tests for pure helpers (only in NODE_ENV=test, server-side)
@@ -127,14 +142,188 @@ export default function AdvancedMetronomeUI() {
 
   // UI-only: quick tap tempo
   const [tapHistory, setTapHistory] = useState<number[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const masterGainRef = useRef<GainNode | null>(null);
+  const isRunningRef = useRef(false);
+  const nextNoteTimeRef = useRef(0);
+  const currentStepRef = useRef(0);
+  const measureStartRef = useRef(0);
+  const rafIdRef = useRef<number | null>(null);
+  const bpmRef = useRef(bpm);
+  const beatsRef = useRef(beats);
+  const unitRef = useRef(unit);
+  const subdivisionRef = useRef(subdivision);
+  const swingRef = useRef(swing);
+  const accentsRef = useRef(accents);
+  const volumeRef = useRef(volume);
+  const visualPulseRef = useRef(visualPulse);
+
+  useEffect(() => {
+    bpmRef.current = bpm;
+  }, [bpm]);
+
+  useEffect(() => {
+    beatsRef.current = beats;
+  }, [beats]);
+
+  useEffect(() => {
+    unitRef.current = unit;
+  }, [unit]);
+
+  useEffect(() => {
+    subdivisionRef.current = subdivision;
+  }, [subdivision]);
+
+  useEffect(() => {
+    swingRef.current = swing;
+  }, [swing]);
+
+  useEffect(() => {
+    accentsRef.current = accents;
+  }, [accents]);
+
+  useEffect(() => {
+    volumeRef.current = volume;
+    if (masterGainRef.current) {
+      const gain = Math.min(0.4, Math.max(0, volume / 100) * 0.4);
+      masterGainRef.current.gain.setTargetAtTime(gain, masterGainRef.current.context.currentTime, 0.01);
+    }
+  }, [volume]);
+
+  useEffect(() => {
+    visualPulseRef.current = visualPulse;
+  }, [visualPulse]);
+
+  const ensureAudioGraph = () => {
+    if (!audioContextRef.current) {
+      const context = new AudioContext();
+      const master = context.createGain();
+      master.gain.value = Math.min(0.4, Math.max(0, volumeRef.current / 100) * 0.4);
+      master.connect(context.destination);
+      audioContextRef.current = context;
+      masterGainRef.current = master;
+    }
+    return audioContextRef.current;
+  };
+
+  const scheduleClick = (time: number, accented: boolean) => {
+    const context = audioContextRef.current;
+    const master = masterGainRef.current;
+    if (!context || !master) return;
+
+    const osc = context.createOscillator();
+    const gain = context.createGain();
+    const type = accented ? "square" : "triangle";
+    const freq = accented ? 1100 : 750;
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, time);
+
+    const attack = 0.003;
+    const decay = 0.06;
+    gain.gain.setValueAtTime(0, time);
+    gain.gain.linearRampToValueAtTime(accented ? 0.9 : 0.7, time + attack);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + decay);
+
+    osc.connect(gain);
+    gain.connect(master);
+    osc.start(time);
+    osc.stop(time + decay + 0.02);
+  };
+
+  const computeStepDuration = (stepIndex: number) => {
+    const contextBeat = 60 / bpmRef.current;
+    const beatDuration = contextBeat * (4 / unitRef.current);
+    const subdivisionsPerBeat = getSubdivisionsPerBeat(subdivisionRef.current);
+    const baseSubdivision = beatDuration / subdivisionsPerBeat;
+    const swingAmount = Math.min(0.75, Math.max(0, swingRef.current / 100));
+    const appliesSwing = swingAmount > 0 && subdivisionsPerBeat % 2 === 0;
+    if (!appliesSwing) {
+      return baseSubdivision;
+    }
+
+    const pairIndex = stepIndex % 2;
+    const swingFactor = 1 + (pairIndex === 0 ? swingAmount : -swingAmount) * 0.5;
+    return baseSubdivision * swingFactor;
+  };
+
+  const schedulerLoop = () => {
+    const context = audioContextRef.current;
+    if (!context || !isRunningRef.current) return;
+
+    const scheduleAhead = 0.12;
+    while (nextNoteTimeRef.current < context.currentTime + scheduleAhead) {
+      const subdivisionsPerBeat = getSubdivisionsPerBeat(subdivisionRef.current);
+      const totalSteps = Math.max(1, beatsRef.current * subdivisionsPerBeat);
+      const stepIndex = currentStepRef.current % totalSteps;
+      const beatIndex = Math.floor(stepIndex / subdivisionsPerBeat);
+      const subIndex = stepIndex % subdivisionsPerBeat;
+      const accentsForBeat = accentsRef.current?.[beatIndex] ?? beatIndex === 0;
+      const isBeatStart = subIndex === 0;
+      const accented = isBeatStart && accentsForBeat;
+      scheduleClick(nextNoteTimeRef.current, accented);
+
+      if (stepIndex === 0) {
+        measureStartRef.current = nextNoteTimeRef.current;
+      }
+
+      const stepDuration = computeStepDuration(stepIndex);
+      nextNoteTimeRef.current += stepDuration;
+      currentStepRef.current = stepIndex + 1;
+    }
+
+    if (visualPulseRef.current) {
+      const beatDuration = (60 / bpmRef.current) * (4 / unitRef.current);
+      const measureDuration = beatDuration * beatsRef.current;
+      const elapsed = Math.max(0, context.currentTime - measureStartRef.current);
+      const progress = measureDuration > 0 ? (elapsed / measureDuration) * 100 : 0;
+      setPhase(clamp(progress, 0, 100));
+    } else {
+      setPhase(0);
+    }
+
+    rafIdRef.current = requestAnimationFrame(schedulerLoop);
+  };
+
+  const startTransport = async () => {
+    if (isRunningRef.current) return;
+    const context = ensureAudioGraph();
+    if (context.state === "suspended") {
+      await context.resume();
+    }
+
+    isRunningRef.current = true;
+    setIsRunning(true);
+    currentStepRef.current = 0;
+    nextNoteTimeRef.current = context.currentTime + 0.05;
+    measureStartRef.current = nextNoteTimeRef.current;
+    rafIdRef.current = requestAnimationFrame(schedulerLoop);
+  };
+
+  const stopTransport = () => {
+    isRunningRef.current = false;
+    setIsRunning(false);
+    if (rafIdRef.current) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+    setPhase(0);
+  };
   const tap = () => {
+    if (isRunningRef.current) return;
     const now = Date.now();
     setTapHistory((h) => {
       const next = [...h, now].slice(-6);
       if (next.length >= 4 && !tempoLock) {
         const diffs = next.slice(1).map((t, i) => t - next[i]);
-        const avg = diffs.reduce((a, b) => a + b, 0) / diffs.length;
-        const bpmEst = Math.round(60000 / avg);
+        const sorted = diffs.slice().sort((a, b) => a - b);
+        const trimmed =
+          sorted.length > 4 ? sorted.slice(1, sorted.length - 1) : sorted;
+        const mid = Math.floor(trimmed.length / 2);
+        const median =
+          trimmed.length % 2 === 0
+            ? (trimmed[mid - 1] + trimmed[mid]) / 2
+            : trimmed[mid];
+        const bpmEst = Math.round(60000 / median);
         setBpm(clamp(bpmEst, 20, 300));
       }
       return next;
@@ -149,6 +338,7 @@ export default function AdvancedMetronomeUI() {
   const tempoMs = useMemo(() => (60000 / bpm) * (4 / unit), [bpm, unit]);
 
   const reset = () => {
+    stopTransport();
     setIsRunning(false);
     setTempoLock(false);
     setBpm(120);
@@ -166,6 +356,15 @@ export default function AdvancedMetronomeUI() {
     next[i] = !next[i];
     setAccents(next);
   };
+
+  useEffect(() => {
+    return () => {
+      stopTransport();
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(900px_circle_at_20%_0%,rgba(56,189,248,0.10),transparent_55%),radial-gradient(700px_circle_at_85%_15%,rgba(168,85,247,0.12),transparent_55%),radial-gradient(900px_circle_at_60%_120%,rgba(34,197,94,0.10),transparent_60%),linear-gradient(180deg,#05070b,#0b0f16)] p-4">
@@ -319,8 +518,11 @@ export default function AdvancedMetronomeUI() {
               <Button
                 className="h-12 rounded-2xl bg-[linear-gradient(180deg,#22c55e,#15803d)] text-black shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_16px_26px_rgba(0,0,0,0.55)] hover:brightness-110"
                 onClick={() => {
-                  setIsRunning((v) => !v);
-                  setPhase((p) => (p + 18) % 100);
+                  if (isRunningRef.current) {
+                    stopTransport();
+                  } else {
+                    startTransport();
+                  }
                 }}
               >
                 {isRunning ? (

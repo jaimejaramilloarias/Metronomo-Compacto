@@ -1,0 +1,9 @@
+Tareas progresivas del metronomo
+
+[1] [x] Crear el motor de audio con Web Audio API.
+[2] [x] Sincronizar la fase visual con el scheduler de audio.
+[3] [x] Ajustar tap tempo con mediana/trimmed mean.
+[4] [ ] Añadir presets guardables de patrones de acentos.
+[5] [ ] Implementar exportación/importación de configuraciones.
+[6] [ ] Incorporar modo entrenamiento con incrementos automáticos.
+[7] [ ] Agregar soporte para polirritmias avanzadas.
