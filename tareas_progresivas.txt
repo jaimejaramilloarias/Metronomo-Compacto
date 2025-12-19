@@ -6,4 +6,6 @@ Tareas progresivas del metronomo
 [4] [x] Añadir presets guardables de patrones de acentos.
 [5] [x] Implementar exportación/importación de configuraciones.
 [6] [x] Incorporar modo entrenamiento con incrementos automáticos.
-[7] [ ] Agregar soporte para polirritmias avanzadas.
+[7] [x] Agregar soporte para polirritmias avanzadas.
+[8] [x] Añadir controles configurables de polirritmia y volumen secundario.
+[9] [x] Optimizar el scheduler para sincronizar capas y refs.
