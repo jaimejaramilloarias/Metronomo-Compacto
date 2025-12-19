@@ -60,6 +60,29 @@ function getSubdivisionsPerBeat(value: "1/4" | "1/8" | "1/8T" | "1/16") {
   }
 }
 
+const PRESET_SLOTS = 4;
+const STORAGE_KEY = "metronome-presets-v1";
+const EXPORT_VERSION = 1;
+
+function normalizeBooleanArray(value: unknown, length: number) {
+  const list = Array.isArray(value) ? value : [];
+  return Array.from({ length }, (_, i) => Boolean(list[i]));
+}
+
+function normalizeConfig(raw: any) {
+  const bpm = clamp(Number(raw?.bpm) || 120, 20, 300);
+  const ts = typeof raw?.ts === "string" ? raw.ts : "4/4";
+  const { beats } = parseBeats(ts);
+  const subdivision = ["1/4", "1/8", "1/8T", "1/16"].includes(raw?.subdivision)
+    ? raw.subdivision
+    : "1/8";
+  const swing = clamp(Number(raw?.swing) || 0, 0, 75);
+  const volume = clamp(Number(raw?.volume) || 70, 0, 100);
+  const visualPulse = Boolean(raw?.visualPulse ?? true);
+  const accents = normalizeBooleanArray(raw?.accents, beats);
+  return { bpm, ts, subdivision, swing, volume, visualPulse, accents };
+}
+
 // Minimal self-tests for pure helpers (only in NODE_ENV=test, server-side)
 function runSelfTests() {
   console.assert(clamp(10, 0, 5) === 5, "clamp upper bound failed");
@@ -73,6 +96,18 @@ function runSelfTests() {
   console.assert(formatSwingLabel(20) === "Light", "formatSwingLabel light failed");
   console.assert(formatSwingLabel(50) === "Medium", "formatSwingLabel medium failed");
   console.assert(formatSwingLabel(70) === "Heavy", "formatSwingLabel heavy failed");
+  const config = normalizeConfig({
+    bpm: 85,
+    ts: "7/8",
+    subdivision: "1/16",
+    swing: 10,
+    volume: 55,
+    visualPulse: false,
+    accents: [true, false, true],
+  });
+  console.assert(config.bpm === 85, "normalizeConfig bpm failed");
+  console.assert(config.ts === "7/8", "normalizeConfig ts failed");
+  console.assert(config.accents.length === 7, "normalizeConfig accents length failed");
 }
 // @ts-expect-error guarded
 if (
@@ -140,6 +175,10 @@ export default function AdvancedMetronomeUI() {
   // Accents as a compact "pattern" – tap to toggle in drawer.
   const [accents, setAccents] = useState<boolean[]>([true, false, false, false]);
 
+  const [trainingMode, setTrainingMode] = useState(false);
+  const [trainingStep, setTrainingStep] = useState(2);
+  const [trainingEvery, setTrainingEvery] = useState(4);
+
   // UI-only: quick tap tempo
   const [tapHistory, setTapHistory] = useState<number[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -157,13 +196,29 @@ export default function AdvancedMetronomeUI() {
   const accentsRef = useRef(accents);
   const volumeRef = useRef(volume);
   const visualPulseRef = useRef(visualPulse);
+  const tempoLockRef = useRef(tempoLock);
+  const presetsRef = useRef<any[]>([]);
+  const trainingModeRef = useRef(trainingMode);
+  const trainingStepRef = useRef(trainingStep);
+  const trainingEveryRef = useRef(trainingEvery);
+  const measureCountRef = useRef(0);
 
   useEffect(() => {
     bpmRef.current = bpm;
   }, [bpm]);
 
   useEffect(() => {
+    tempoLockRef.current = tempoLock;
+  }, [tempoLock]);
+
+  useEffect(() => {
     beatsRef.current = beats;
+  }, [beats]);
+
+  useEffect(() => {
+    setAccents((prev) =>
+      Array.from({ length: beats }, (_, i) => prev?.[i] ?? i === 0)
+    );
   }, [beats]);
 
   useEffect(() => {
@@ -194,6 +249,33 @@ export default function AdvancedMetronomeUI() {
     visualPulseRef.current = visualPulse;
   }, [visualPulse]);
 
+  useEffect(() => {
+    trainingModeRef.current = trainingMode;
+  }, [trainingMode]);
+
+  useEffect(() => {
+    trainingStepRef.current = trainingStep;
+  }, [trainingStep]);
+
+  useEffect(() => {
+    trainingEveryRef.current = trainingEvery;
+  }, [trainingEvery]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          presetsRef.current = parsed.map((entry) => normalizeConfig(entry));
+        }
+      } catch {
+        presetsRef.current = [];
+      }
+    }
+  }, []);
+
   const ensureAudioGraph = () => {
     if (!audioContextRef.current) {
       const context = new AudioContext();
@@ -204,6 +286,79 @@ export default function AdvancedMetronomeUI() {
       masterGainRef.current = master;
     }
     return audioContextRef.current;
+  };
+
+  const getConfigSnapshot = () => ({
+    bpm: bpmRef.current,
+    ts,
+    subdivision: subdivisionRef.current,
+    swing: swingRef.current,
+    volume: volumeRef.current,
+    visualPulse: visualPulseRef.current,
+    accents: accentsRef.current,
+  });
+
+  const applyConfig = (raw: any) => {
+    const config = normalizeConfig(raw);
+    const next = parseBeats(config.ts);
+    if (!tempoLockRef.current) {
+      setBpm(config.bpm);
+    }
+    setTs(config.ts);
+    setSubdivision(config.subdivision);
+    setSwing(config.swing);
+    setVolume(config.volume);
+    setVisualPulse(config.visualPulse);
+    setAccents(normalizeBooleanArray(config.accents, next.beats));
+  };
+
+  const persistPresets = (presets: any[]) => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(presets));
+  };
+
+  const savePreset = (slot: number) => {
+    const current = getConfigSnapshot();
+    const presets = Array.from({ length: PRESET_SLOTS }, (_, i) =>
+      presetsRef.current[i] ? normalizeConfig(presetsRef.current[i]) : null
+    );
+    presets[slot] = normalizeConfig(current);
+    presetsRef.current = presets;
+    persistPresets(presets);
+  };
+
+  const loadPreset = (slot: number) => {
+    const preset = presetsRef.current[slot];
+    if (preset) {
+      applyConfig(preset);
+    }
+  };
+
+  const exportConfig = async () => {
+    const payload = JSON.stringify({
+      version: EXPORT_VERSION,
+      config: normalizeConfig(getConfigSnapshot()),
+    });
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(payload);
+      return;
+    }
+    if (typeof window !== "undefined") {
+      window.prompt("Copy metronome config JSON:", payload);
+    }
+  };
+
+  const importConfig = () => {
+    if (typeof window === "undefined") return;
+    const raw = window.prompt("Paste metronome config JSON:");
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      const payload = parsed?.config ?? parsed;
+      applyConfig(payload);
+    } catch {
+      window.alert("Invalid metronome config JSON.");
+    }
   };
 
   const scheduleClick = (time: number, accented: boolean) => {
@@ -264,6 +419,20 @@ export default function AdvancedMetronomeUI() {
 
       if (stepIndex === 0) {
         measureStartRef.current = nextNoteTimeRef.current;
+        measureCountRef.current += 1;
+        if (
+          trainingModeRef.current &&
+          trainingEveryRef.current > 0 &&
+          measureCountRef.current % trainingEveryRef.current === 0 &&
+          !tempoLockRef.current
+        ) {
+          const nextTempo = clamp(
+            bpmRef.current + trainingStepRef.current,
+            20,
+            300
+          );
+          setBpm(nextTempo);
+        }
       }
 
       const stepDuration = computeStepDuration(stepIndex);
@@ -296,6 +465,7 @@ export default function AdvancedMetronomeUI() {
     currentStepRef.current = 0;
     nextNoteTimeRef.current = context.currentTime + 0.05;
     measureStartRef.current = nextNoteTimeRef.current;
+    measureCountRef.current = 0;
     rafIdRef.current = requestAnimationFrame(schedulerLoop);
   };
 
@@ -348,6 +518,10 @@ export default function AdvancedMetronomeUI() {
     setVolume(70);
     setVisualPulse(true);
     setAccents([true, false, false, false]);
+    setTrainingMode(false);
+    setTrainingStep(2);
+    setTrainingEvery(4);
+    setTapHistory([]);
     setPhase(35);
   };
 
@@ -363,6 +537,39 @@ export default function AdvancedMetronomeUI() {
       if (audioContextRef.current) {
         audioContextRef.current.close();
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const digit = Number(event.key);
+      if (Number.isFinite(digit) && digit >= 1 && digit <= PRESET_SLOTS) {
+        event.preventDefault();
+        if (event.shiftKey) {
+          savePreset(digit - 1);
+        } else {
+          loadPreset(digit - 1);
+        }
+        return;
+      }
+      if (event.key.toLowerCase() === "e") {
+        event.preventDefault();
+        exportConfig();
+      }
+      if (event.key.toLowerCase() === "i") {
+        event.preventDefault();
+        importConfig();
+      }
+      if (event.key.toLowerCase() === "t") {
+        event.preventDefault();
+        setTrainingMode((value) => !value);
+      }
+    };
+    window.addEventListener("keydown", handleKeydown);
+    return () => {
+      window.removeEventListener("keydown", handleKeydown);
     };
   }, []);
 
