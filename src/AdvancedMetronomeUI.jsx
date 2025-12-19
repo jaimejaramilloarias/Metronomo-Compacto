@@ -1200,7 +1200,7 @@ export default function AdvancedMetronomeUI() {
                           <div className="mt-2 flex gap-2">
                             <Button
                               variant="outline"
-                              className="h-8 flex-1 rounded-2xl text-white border border-white/15 bg-[linear-gradient(180deg,rgba(56,189,248,0.28),rgba(56,189,248,0.10))] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_10px_16px_rgba(0,0,0,0.35)] hover:brightness-110"
+                              className="h-6 flex-1 rounded-2xl text-[0.7rem] text-white border border-white/15 bg-[linear-gradient(180deg,rgba(56,189,248,0.28),rgba(56,189,248,0.10))] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_10px_16px_rgba(0,0,0,0.35)] hover:brightness-110"
                               onClick={() => loadPreset(i)}
                               disabled={!hasPreset}
                             >
@@ -1208,7 +1208,7 @@ export default function AdvancedMetronomeUI() {
                             </Button>
                             <Button
                               variant="outline"
-                              className="h-8 flex-1 rounded-2xl text-white border border-white/15 bg-[linear-gradient(180deg,rgba(168,85,247,0.30),rgba(168,85,247,0.12))] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_10px_16px_rgba(0,0,0,0.35)] hover:brightness-110"
+                              className="h-6 flex-1 rounded-2xl text-[0.7rem] text-white border border-white/15 bg-[linear-gradient(180deg,rgba(168,85,247,0.30),rgba(168,85,247,0.12))] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_10px_16px_rgba(0,0,0,0.35)] hover:brightness-110"
                               onClick={() => savePreset(i)}
                             >
                               Guardar
