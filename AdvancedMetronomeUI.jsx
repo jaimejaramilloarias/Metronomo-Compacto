@@ -45,7 +45,10 @@ function formatSwingLabel(v: number) {
   return "Heavy";
 }
 
-function getSubdivisionsPerBeat(value: "1/4" | "1/8" | "1/8T" | "1/16") {
+const SUBDIVISIONS = ["1/4", "1/8", "1/8T", "1/16"] as const;
+type Subdivision = (typeof SUBDIVISIONS)[number];
+
+function getSubdivisionsPerBeat(value: Subdivision) {
   switch (value) {
     case "1/4":
       return 1;
@@ -77,14 +80,32 @@ function normalizeConfig(raw: any) {
   const bpm = clamp(Number(raw?.bpm) || 120, 20, 300);
   const ts = typeof raw?.ts === "string" ? raw.ts : "4/4";
   const { beats } = parseBeats(ts);
-  const subdivision = ["1/4", "1/8", "1/8T", "1/16"].includes(raw?.subdivision)
+  const subdivision = SUBDIVISIONS.includes(raw?.subdivision)
     ? raw.subdivision
     : "1/8";
   const swing = clamp(Number(raw?.swing) || 0, 0, 75);
   const volume = clamp(Number(raw?.volume) || 70, 0, 100);
+  const polyEnabled = Boolean(raw?.polyEnabled ?? false);
+  const polyBeats = clamp(Number(raw?.polyBeats) || 3, 2, 12);
+  const polySubdivision = SUBDIVISIONS.includes(raw?.polySubdivision)
+    ? raw.polySubdivision
+    : "1/4";
+  const polyVolume = clamp(Number(raw?.polyVolume) || 55, 0, 100);
   const visualPulse = Boolean(raw?.visualPulse ?? true);
   const accents = normalizeBooleanArray(raw?.accents, beats);
-  return { bpm, ts, subdivision, swing, volume, visualPulse, accents };
+  return {
+    bpm,
+    ts,
+    subdivision,
+    swing,
+    volume,
+    polyEnabled,
+    polyBeats,
+    polySubdivision,
+    polyVolume,
+    visualPulse,
+    accents,
+  };
 }
 
 // Minimal self-tests for pure helpers (only in NODE_ENV=test, server-side)
@@ -106,11 +127,19 @@ function runSelfTests() {
     subdivision: "1/16",
     swing: 10,
     volume: 55,
+    polyEnabled: true,
+    polyBeats: 5,
+    polySubdivision: "1/8",
+    polyVolume: 45,
     visualPulse: false,
     accents: [true, false, true],
   });
   console.assert(config.bpm === 85, "normalizeConfig bpm failed");
   console.assert(config.ts === "7/8", "normalizeConfig ts failed");
+  console.assert(config.polyEnabled === true, "normalizeConfig polyEnabled failed");
+  console.assert(config.polyBeats === 5, "normalizeConfig polyBeats failed");
+  console.assert(config.polySubdivision === "1/8", "normalizeConfig polySubdivision failed");
+  console.assert(config.polyVolume === 45, "normalizeConfig polyVolume failed");
   console.assert(config.accents.length === 7, "normalizeConfig accents length failed");
 }
 // @ts-expect-error guarded
@@ -166,11 +195,15 @@ export default function AdvancedMetronomeUI() {
   const [ts, setTs] = useState("4/4");
   const { beats, unit } = useMemo(() => parseBeats(ts), [ts]);
 
-  const [subdivision, setSubdivision] = useState<"1/4" | "1/8" | "1/8T" | "1/16">("1/8");
+  const [subdivision, setSubdivision] = useState<Subdivision>("1/8");
   const [swing, setSwing] = useState(0);
   const swingLabel = useMemo(() => formatSwingLabel(swing), [swing]);
 
   const [volume, setVolume] = useState(70);
+  const [polyEnabled, setPolyEnabled] = useState(false);
+  const [polyBeats, setPolyBeats] = useState(3);
+  const [polySubdivision, setPolySubdivision] = useState<Subdivision>("1/4");
+  const [polyVolume, setPolyVolume] = useState(55);
   const [visualPulse, setVisualPulse] = useState(true);
   const [phase, setPhase] = useState(35);
 
@@ -200,6 +233,10 @@ export default function AdvancedMetronomeUI() {
   const swingRef = useRef(swing);
   const accentsRef = useRef(accents);
   const volumeRef = useRef(volume);
+  const polyEnabledRef = useRef(polyEnabled);
+  const polyBeatsRef = useRef(polyBeats);
+  const polySubdivisionRef = useRef(polySubdivision);
+  const polyVolumeRef = useRef(polyVolume);
   const visualPulseRef = useRef(visualPulse);
   const tempoLockRef = useRef(tempoLock);
   const presetsRef = useRef<any[]>([]);
@@ -207,6 +244,8 @@ export default function AdvancedMetronomeUI() {
   const trainingStepRef = useRef(trainingStep);
   const trainingEveryRef = useRef(trainingEvery);
   const measureCountRef = useRef(0);
+  const polyNextNoteTimeRef = useRef(0);
+  const polyStepRef = useRef(0);
 
   useEffect(() => {
     bpmRef.current = bpm;
@@ -247,6 +286,31 @@ export default function AdvancedMetronomeUI() {
       masterGainRef.current.gain.setTargetAtTime(gain, masterGainRef.current.context.currentTime, 0.01);
     }
   }, [volume]);
+
+  useEffect(() => {
+    polyEnabledRef.current = polyEnabled;
+  }, [polyEnabled]);
+
+  useEffect(() => {
+    if (!polyEnabled) return;
+    const context = audioContextRef.current;
+    if (context && isRunningRef.current) {
+      polyStepRef.current = 0;
+      polyNextNoteTimeRef.current = Math.max(context.currentTime, nextNoteTimeRef.current);
+    }
+  }, [polyEnabled]);
+
+  useEffect(() => {
+    polyBeatsRef.current = polyBeats;
+  }, [polyBeats]);
+
+  useEffect(() => {
+    polySubdivisionRef.current = polySubdivision;
+  }, [polySubdivision]);
+
+  useEffect(() => {
+    polyVolumeRef.current = polyVolume;
+  }, [polyVolume]);
 
   useEffect(() => {
     visualPulseRef.current = visualPulse;
@@ -297,6 +361,10 @@ export default function AdvancedMetronomeUI() {
     subdivision: subdivisionRef.current,
     swing: swingRef.current,
     volume: volumeRef.current,
+    polyEnabled: polyEnabledRef.current,
+    polyBeats: polyBeatsRef.current,
+    polySubdivision: polySubdivisionRef.current,
+    polyVolume: polyVolumeRef.current,
     visualPulse: visualPulseRef.current,
     accents: accentsRef.current,
   });
@@ -311,6 +379,10 @@ export default function AdvancedMetronomeUI() {
     setSubdivision(config.subdivision);
     setSwing(config.swing);
     setVolume(config.volume);
+    setPolyEnabled(config.polyEnabled);
+    setPolyBeats(config.polyBeats);
+    setPolySubdivision(config.polySubdivision);
+    setPolyVolume(config.polyVolume);
     setVisualPulse(config.visualPulse);
     setAccents(normalizeBooleanArray(config.accents, next.beats));
   };
@@ -366,7 +438,12 @@ export default function AdvancedMetronomeUI() {
     }
   };
 
-  const scheduleClick = (time: number, accented: boolean) => {
+  const scheduleClick = (
+    time: number,
+    accented: boolean,
+    intensity = 1,
+    frequency?: number
+  ) => {
     const context = audioContextRef.current;
     const master = masterGainRef.current;
     if (!context || !master) return;
@@ -374,20 +451,27 @@ export default function AdvancedMetronomeUI() {
     const osc = context.createOscillator();
     const gain = context.createGain();
     const type = accented ? "square" : "triangle";
-    const freq = accented ? 1100 : 750;
+    const freq = frequency ?? (accented ? 1100 : 750);
     osc.type = type;
     osc.frequency.setValueAtTime(freq, time);
 
     const attack = 0.003;
     const decay = 0.06;
     gain.gain.setValueAtTime(0, time);
-    gain.gain.linearRampToValueAtTime(accented ? 0.9 : 0.7, time + attack);
+    const level = Math.max(0, Math.min(1, intensity));
+    gain.gain.linearRampToValueAtTime((accented ? 0.9 : 0.7) * level, time + attack);
     gain.gain.exponentialRampToValueAtTime(0.001, time + decay);
 
     osc.connect(gain);
     gain.connect(master);
     osc.start(time);
     osc.stop(time + decay + 0.02);
+  };
+
+  const computeMeasureDuration = () => {
+    const contextBeat = 60 / bpmRef.current;
+    const beatDuration = contextBeat * (4 / unitRef.current);
+    return beatDuration * beatsRef.current;
   };
 
   const computeStepDuration = (stepIndex: number) => {
@@ -420,11 +504,15 @@ export default function AdvancedMetronomeUI() {
       const accentsForBeat = accentsRef.current?.[beatIndex] ?? beatIndex === 0;
       const isBeatStart = subIndex === 0;
       const accented = isBeatStart && accentsForBeat;
-      scheduleClick(nextNoteTimeRef.current, accented);
+      scheduleClick(nextNoteTimeRef.current, accented, 1);
 
       if (stepIndex === 0) {
         measureStartRef.current = nextNoteTimeRef.current;
         measureCountRef.current += 1;
+        if (polyEnabledRef.current) {
+          polyNextNoteTimeRef.current = measureStartRef.current;
+          polyStepRef.current = 0;
+        }
         if (
           trainingModeRef.current &&
           trainingEveryRef.current > 0 &&
@@ -445,9 +533,32 @@ export default function AdvancedMetronomeUI() {
       currentStepRef.current = stepIndex + 1;
     }
 
+    if (polyEnabledRef.current) {
+      const polySubdivisions = getSubdivisionsPerBeat(polySubdivisionRef.current);
+      const polyTotalSteps = Math.max(1, polyBeatsRef.current * polySubdivisions);
+      const measureDuration = computeMeasureDuration();
+      const polyStepDuration = measureDuration / polyTotalSteps;
+      if (polyNextNoteTimeRef.current < context.currentTime - scheduleAhead) {
+        polyNextNoteTimeRef.current = context.currentTime + 0.01;
+        polyStepRef.current = 0;
+      }
+      while (polyNextNoteTimeRef.current < context.currentTime + scheduleAhead) {
+        const stepIndex = polyStepRef.current % polyTotalSteps;
+        const subIndex = stepIndex % polySubdivisions;
+        const isBeatStart = subIndex === 0;
+        const polyIntensity = polyVolumeRef.current / 100;
+        const polyAccented = isBeatStart;
+        const polyFrequency = polyAccented ? 900 : 620;
+        if (polyStepDuration > 0) {
+          scheduleClick(polyNextNoteTimeRef.current, polyAccented, polyIntensity, polyFrequency);
+        }
+        polyNextNoteTimeRef.current += polyStepDuration;
+        polyStepRef.current = stepIndex + 1;
+      }
+    }
+
     if (visualPulseRef.current) {
-      const beatDuration = (60 / bpmRef.current) * (4 / unitRef.current);
-      const measureDuration = beatDuration * beatsRef.current;
+      const measureDuration = computeMeasureDuration();
       const elapsed = Math.max(0, context.currentTime - measureStartRef.current);
       const progress = measureDuration > 0 ? (elapsed / measureDuration) * 100 : 0;
       setPhase(clamp(progress, 0, 100));
@@ -471,6 +582,8 @@ export default function AdvancedMetronomeUI() {
     nextNoteTimeRef.current = context.currentTime + 0.05;
     measureStartRef.current = nextNoteTimeRef.current;
     measureCountRef.current = 0;
+    polyStepRef.current = 0;
+    polyNextNoteTimeRef.current = nextNoteTimeRef.current;
     rafIdRef.current = requestAnimationFrame(schedulerLoop);
   };
 
@@ -521,6 +634,10 @@ export default function AdvancedMetronomeUI() {
     setSubdivision("1/8");
     setSwing(0);
     setVolume(70);
+    setPolyEnabled(false);
+    setPolyBeats(3);
+    setPolySubdivision("1/4");
+    setPolyVolume(55);
     setVisualPulse(true);
     setAccents(buildAccentArray(4));
     setTrainingMode(false);
@@ -791,7 +908,7 @@ export default function AdvancedMetronomeUI() {
                   <div className="space-y-2">
                     <Label className="text-xs text-white/85">Subdivision</Label>
                     <div className="flex gap-2">
-                      {(["1/4", "1/8", "1/8T", "1/16"] as const).map((x) => (
+                      {SUBDIVISIONS.map((x) => (
                         <SegButton
                           key={x}
                           active={subdivision === x}
@@ -893,6 +1010,61 @@ export default function AdvancedMetronomeUI() {
                       max={12}
                       step={1}
                       onValueChange={(v) => setTrainingEvery(v[0])}
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/12 bg-black/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-semibold text-white">Polyrhythm</div>
+                      <div className="text-xs text-white/75">
+                        Secondary pulse against main meter
+                      </div>
+                    </div>
+                    <Switch checked={polyEnabled} onCheckedChange={setPolyEnabled} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label className="text-xs text-white/85">Beats</Label>
+                      <div className="flex gap-2">
+                        {[3, 4, 5, 7].map((value) => (
+                          <SegButton
+                            key={value}
+                            active={polyBeats === value}
+                            onClick={() => setPolyBeats(value)}
+                          >
+                            {value}
+                          </SegButton>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs text-white/85">Subdivision</Label>
+                      <div className="flex gap-2">
+                        {SUBDIVISIONS.map((value) => (
+                          <SegButton
+                            key={value}
+                            active={polySubdivision === value}
+                            onClick={() => setPolySubdivision(value)}
+                          >
+                            {value}
+                          </SegButton>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-white/12 bg-black/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                    <div className="flex items-center justify-between text-xs text-white/80">
+                      <span>Poly volume</span>
+                      <span className="text-white">{polyVolume}%</span>
+                    </div>
+                    <Slider
+                      value={[polyVolume]}
+                      min={0}
+                      max={100}
+                      step={1}
+                      onValueChange={(v) => setPolyVolume(v[0])}
                     />
                   </div>
                 </div>
