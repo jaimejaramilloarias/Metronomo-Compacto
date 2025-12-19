@@ -21,9 +21,9 @@ import {
 } from "lucide-react";
 
 /**
- * Compact “hardware-style” advanced metronome UI (UI-only).
- * Dark metal body + clear text + colorful buttons/lights.
- * Works well as a small “physical device” panel for Mac/iPad/iPhone.
+ * Interfaz de metrónomo avanzada compacta con estilo “hardware” (solo UI).
+ * Cuerpo metálico oscuro + texto claro + botones/luces coloridos.
+ * Funciona bien como panel de “dispositivo físico” para Mac/iPad/iPhone.
  */
 
 function clamp(n, min, max) {
@@ -39,10 +39,10 @@ function parseBeats(ts) {
 }
 
 function formatSwingLabel(v) {
-  if (v <= 0) return "Straight";
-  if (v < 45) return "Light";
-  if (v < 60) return "Medium";
-  return "Heavy";
+  if (v <= 0) return "Recto";
+  if (v < 45) return "Ligero";
+  if (v < 60) return "Medio";
+  return "Pesado";
 }
 
 const TIME_SIGNATURES = [
@@ -147,19 +147,19 @@ function useSyncedRef(value) {
   return ref;
 }
 
-// Minimal self-tests for pure helpers (only in NODE_ENV=test, server-side)
+// Pruebas mínimas para helpers puros (solo en NODE_ENV=test, lado servidor)
 function runSelfTests() {
-  console.assert(clamp(10, 0, 5) === 5, "clamp upper bound failed");
-  console.assert(clamp(-1, 0, 5) === 0, "clamp lower bound failed");
-  console.assert(clamp(3, 0, 5) === 3, "clamp passthrough failed");
+  console.assert(clamp(10, 0, 5) === 5, "falló el límite superior de clamp");
+  console.assert(clamp(-1, 0, 5) === 0, "falló el límite inferior de clamp");
+  console.assert(clamp(3, 0, 5) === 3, "falló el paso directo de clamp");
   const a = parseBeats("7/8");
-  console.assert(a.beats === 7 && a.unit === 8, "parseBeats 7/8 failed");
+  console.assert(a.beats === 7 && a.unit === 8, "falló parseBeats 7/8");
   const b = parseBeats("bad");
-  console.assert(b.beats === 4 && b.unit === 4, "parseBeats fallback failed");
-  console.assert(formatSwingLabel(0) === "Straight", "formatSwingLabel 0 failed");
-  console.assert(formatSwingLabel(20) === "Light", "formatSwingLabel light failed");
-  console.assert(formatSwingLabel(50) === "Medium", "formatSwingLabel medium failed");
-  console.assert(formatSwingLabel(70) === "Heavy", "formatSwingLabel heavy failed");
+  console.assert(b.beats === 4 && b.unit === 4, "falló el fallback de parseBeats");
+  console.assert(formatSwingLabel(0) === "Recto", "falló formatSwingLabel 0");
+  console.assert(formatSwingLabel(20) === "Ligero", "falló formatSwingLabel ligero");
+  console.assert(formatSwingLabel(50) === "Medio", "falló formatSwingLabel medio");
+  console.assert(formatSwingLabel(70) === "Pesado", "falló formatSwingLabel pesado");
   const config = normalizeConfig({
     bpm: 85,
     ts: "7/8",
@@ -173,13 +173,13 @@ function runSelfTests() {
     visualPulse: false,
     accents: [true, false, true],
   });
-  console.assert(config.bpm === 85, "normalizeConfig bpm failed");
-  console.assert(config.ts === "7/8", "normalizeConfig ts failed");
-  console.assert(config.polyEnabled === true, "normalizeConfig polyEnabled failed");
-  console.assert(config.polyBeats === 5, "normalizeConfig polyBeats failed");
-  console.assert(config.polySubdivision === "1/8", "normalizeConfig polySubdivision failed");
-  console.assert(config.polyVolume === 45, "normalizeConfig polyVolume failed");
-  console.assert(config.accents.length === 7, "normalizeConfig accents length failed");
+  console.assert(config.bpm === 85, "falló normalizeConfig bpm");
+  console.assert(config.ts === "7/8", "falló normalizeConfig ts");
+  console.assert(config.polyEnabled === true, "falló normalizeConfig polyEnabled");
+  console.assert(config.polyBeats === 5, "falló normalizeConfig polyBeats");
+  console.assert(config.polySubdivision === "1/8", "falló normalizeConfig polySubdivision");
+  console.assert(config.polyVolume === 45, "falló normalizeConfig polyVolume");
+  console.assert(config.accents.length === 7, "falló la longitud de acentos en normalizeConfig");
 }
 if (
   typeof window === "undefined" &&
@@ -258,14 +258,14 @@ export default function AdvancedMetronomeUI() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [presetTick, setPresetTick] = useState(0);
 
-  // Accents as a compact "pattern" – tap to toggle in drawer.
+  // Acentos como un "patrón" compacto: toca para alternar en el cajón.
   const [accents, setAccents] = useState([true, false, false, false]);
 
   const [trainingMode, setTrainingMode] = useState(false);
   const [trainingStep, setTrainingStep] = useState(2);
   const [trainingEvery, setTrainingEvery] = useState(4);
 
-  // UI-only: quick tap tempo
+  // Solo UI: tempo rápido con toques
   const [tapHistory, setTapHistory] = useState([]);
   const audioContextRef = useRef(null);
   const masterGainRef = useRef(null);
@@ -432,20 +432,20 @@ export default function AdvancedMetronomeUI() {
       return;
     }
     if (typeof window !== "undefined") {
-      window.prompt("Copy metronome config JSON:", payload);
+      window.prompt("Copia el JSON de configuración del metrónomo:", payload);
     }
   };
 
   const importConfig = () => {
     if (typeof window === "undefined") return;
-    const raw = window.prompt("Paste metronome config JSON:");
+    const raw = window.prompt("Pega el JSON de configuración del metrónomo:");
     if (!raw) return;
     try {
       const parsed = JSON.parse(raw);
       const payload = parsed?.config ?? parsed;
       applyConfig(payload);
     } catch {
-      window.alert("Invalid metronome config JSON.");
+      window.alert("JSON de configuración del metrónomo no válido.");
     }
   };
 
@@ -766,7 +766,7 @@ export default function AdvancedMetronomeUI() {
                 </div>
                 <div>
                   <CardTitle className="text-base leading-tight text-white">
-                    Metronome
+                    Metrónomo Jaramillo
                   </CardTitle>
                   <div className="text-xs text-white/85">
                     {ts} • {subdivision} • {swingLabel}
@@ -779,7 +779,7 @@ export default function AdvancedMetronomeUI() {
                   variant={isRunning ? "default" : "secondary"}
                   className="rounded-full bg-[linear-gradient(180deg,rgba(34,197,94,0.35),rgba(34,197,94,0.12))] text-white border border-white/15"
                 >
-                  {isRunning ? "Run" : "Stop"}
+                  {isRunning ? "En marcha" : "Detenido"}
                 </Badge>
 
                 <Button
@@ -787,7 +787,7 @@ export default function AdvancedMetronomeUI() {
                   variant={tempoLock ? "secondary" : "outline"}
                   className="h-10 w-10 rounded-2xl border border-white/15 bg-[linear-gradient(180deg,rgba(99,102,241,0.40),rgba(99,102,241,0.12))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_12px_18px_rgba(0,0,0,0.45)] hover:brightness-110"
                   onClick={() => setTempoLock((v) => !v)}
-                  aria-label="Tempo lock"
+                  aria-label="Bloqueo de tempo"
                 >
                   {tempoLock ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
                 </Button>
@@ -796,9 +796,9 @@ export default function AdvancedMetronomeUI() {
           </CardHeader>
 
           <CardContent className="space-y-4">
-            {/* Display like a hardware LED */}
+            {/* Pantalla como LED de hardware */}
             <div className="relative rounded-[1.75rem] border border-white/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02),rgba(0,0,0,0.55))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_18px_35px_rgba(0,0,0,0.45)]">
-              {/* smoked glass overlay */}
+              {/* superposición de vidrio ahumado */}
               <div className="pointer-events-none absolute inset-0 rounded-[1.75rem] bg-[radial-gradient(700px_circle_at_20%_0%,rgba(56,189,248,0.10),transparent_60%),radial-gradient(700px_circle_at_85%_10%,rgba(168,85,247,0.10),transparent_60%)]" />
               <div className="pointer-events-none absolute inset-0 rounded-[1.75rem] opacity-[0.06] mix-blend-overlay bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.22)_0px,rgba(255,255,255,0.22)_1px,transparent_1px,transparent_7px)]" />
 
@@ -809,12 +809,12 @@ export default function AdvancedMetronomeUI() {
                     <div className="text-5xl font-extrabold tracking-tight tabular-nums text-white drop-shadow-[0_2px_0_rgba(0,0,0,0.6)]">
                       {bpm}
                     </div>
-                    <div className="pb-2 text-sm text-white/80">BPM</div>
+                  <div className="pb-2 text-sm text-white/80">BPM</div>
                   </div>
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
-                  <div className="text-xs text-white/80">{tempoMs.toFixed(0)} ms/beat</div>
+                  <div className="text-xs text-white/80">{tempoMs.toFixed(0)} ms/pulso</div>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
@@ -822,7 +822,7 @@ export default function AdvancedMetronomeUI() {
                       className="h-10 w-10 rounded-2xl text-white border border-white/15 bg-[linear-gradient(180deg,rgba(56,189,248,0.35),rgba(56,189,248,0.10))] shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_12px_18px_rgba(0,0,0,0.45)] hover:brightness-110"
                       disabled={tempoLock}
                       onClick={() => bumpBpm(-1)}
-                      aria-label="Decrease BPM"
+                      aria-label="Disminuir BPM"
                     >
                       <Minus className="h-4 w-4" />
                     </Button>
@@ -832,7 +832,7 @@ export default function AdvancedMetronomeUI() {
                       className="h-10 w-10 rounded-2xl text-white border border-white/15 bg-[linear-gradient(180deg,rgba(56,189,248,0.35),rgba(56,189,248,0.10))] shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_12px_18px_rgba(0,0,0,0.45)] hover:brightness-110"
                       disabled={tempoLock}
                       onClick={() => bumpBpm(1)}
-                      aria-label="Increase BPM"
+                      aria-label="Aumentar BPM"
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
@@ -858,7 +858,7 @@ export default function AdvancedMetronomeUI() {
                     onClick={tap}
                     disabled={tempoLock}
                   >
-                    Tap tempo
+                    Marcar tempo
                   </button>
                   <div className="flex items-center gap-2 text-xs text-white/85">
                     <Sparkles className="h-3.5 w-3.5" />
@@ -866,17 +866,17 @@ export default function AdvancedMetronomeUI() {
                   </div>
                 </div>
 
-                {/* Beat dots like a physical device */}
+                {/* Puntos de pulso como un dispositivo físico */}
                 <div className="rounded-2xl border border-white/12 bg-black/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                   <div className="flex items-center justify-between">
-                    <div className="text-xs text-white/85">Beats</div>
+                    <div className="text-xs text-white/85">Pulsos</div>
                     <button
                       type="button"
                       className="inline-flex items-center gap-1 text-xs font-medium text-white/90 hover:text-white hover:underline"
                       onClick={() => setPhase((p) => (p + 28) % 100)}
                     >
                       <TimerReset className="h-3.5 w-3.5" />
-                      Nudge
+                      Ajustar
                     </button>
                   </div>
                   <div className="mt-3">
@@ -897,7 +897,7 @@ export default function AdvancedMetronomeUI() {
               </div>
             </div>
 
-            {/* Transport row */}
+            {/* Fila de transporte */}
             <div className="grid grid-cols-3 gap-2">
               <div className="pointer-events-none col-span-3 h-px bg-white/10" />
 
@@ -913,11 +913,11 @@ export default function AdvancedMetronomeUI() {
               >
                 {isRunning ? (
                   <>
-                    <Pause className="mr-2 h-4 w-4" /> Pause
+                    <Pause className="mr-2 h-4 w-4" /> Pausar
                   </>
                 ) : (
                   <>
-                    <Play className="mr-2 h-4 w-4" /> Start
+                    <Play className="mr-2 h-4 w-4" /> Iniciar
                   </>
                 )}
               </Button>
@@ -927,7 +927,7 @@ export default function AdvancedMetronomeUI() {
                 className="h-12 rounded-2xl border border-white/15 bg-[linear-gradient(180deg,rgba(168,85,247,0.35),rgba(168,85,247,0.12))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_16px_26px_rgba(0,0,0,0.45)] hover:brightness-110"
                 onClick={() => setDrawerOpen((v) => !v)}
               >
-                {drawerOpen ? "Less" : "More"}
+                {drawerOpen ? "Menos" : "Más"}
               </Button>
 
               <Button
@@ -935,16 +935,16 @@ export default function AdvancedMetronomeUI() {
                 className="h-12 rounded-2xl border border-white/15 bg-[linear-gradient(180deg,rgba(251,146,60,0.40),rgba(251,146,60,0.12))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_16px_26px_rgba(0,0,0,0.45)] hover:brightness-110"
                 onClick={reset}
               >
-                <RotateCcw className="mr-2 h-4 w-4" /> Reset
+                <RotateCcw className="mr-2 h-4 w-4" /> Reiniciar
               </Button>
             </div>
 
-            {/* Drawer (advanced) */}
+            {/* Cajón (avanzado) */}
             {drawerOpen && (
               <div className="rounded-[1.75rem] border border-white/12 bg-black/45 p-4 space-y-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label className="text-xs text-white/85">Time signature</Label>
+                    <Label className="text-xs text-white/85">Compás</Label>
                     <select
                       value={ts}
                       onChange={(event) => setTs(event.target.value)}
@@ -959,7 +959,7 @@ export default function AdvancedMetronomeUI() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-xs text-white/85">Subdivision</Label>
+                    <Label className="text-xs text-white/85">Subdivisión</Label>
                     <select
                       value={subdivision}
                       onChange={(event) => setSubdivision(event.target.value)}
@@ -1000,7 +1000,7 @@ export default function AdvancedMetronomeUI() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Volume2 className="h-4 w-4 text-white/80" />
-                        <div className="text-sm font-semibold text-white">Volume</div>
+                      <div className="text-sm font-semibold text-white">Volumen</div>
                       </div>
                       <Badge
                         variant="secondary"
@@ -1023,8 +1023,8 @@ export default function AdvancedMetronomeUI() {
 
                 <div className="flex items-center justify-between rounded-2xl border border-white/12 bg-black/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                   <div>
-                    <div className="text-sm font-semibold text-white">Visual pulse</div>
-                    <div className="text-xs text-white/75">Beat bar + dots</div>
+                    <div className="text-sm font-semibold text-white">Pulso visual</div>
+                    <div className="text-xs text-white/75">Barra de pulso + puntos</div>
                   </div>
                   <Switch checked={visualPulse} onCheckedChange={setVisualPulse} />
                 </div>
@@ -1032,16 +1032,16 @@ export default function AdvancedMetronomeUI() {
                 <div className="rounded-2xl border border-white/12 bg-black/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm font-semibold text-white">Training mode</div>
+                      <div className="text-sm font-semibold text-white">Modo de entrenamiento</div>
                       <div className="text-xs text-white/75">
-                        Auto-increase tempo while playing
+                        Aumenta automáticamente el tempo al reproducir
                       </div>
                     </div>
                     <Switch checked={trainingMode} onCheckedChange={setTrainingMode} />
                   </div>
                   <div className="rounded-2xl border border-white/12 bg-black/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                     <div className="flex items-center justify-between text-xs text-white/80">
-                      <span>Increase by</span>
+                      <span>Aumentar en</span>
                       <span className="text-white">{trainingStep} BPM</span>
                     </div>
                     <Slider
@@ -1054,8 +1054,8 @@ export default function AdvancedMetronomeUI() {
                   </div>
                   <div className="rounded-2xl border border-white/12 bg-black/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                     <div className="flex items-center justify-between text-xs text-white/80">
-                      <span>Every</span>
-                      <span className="text-white">{trainingEvery} measures</span>
+                      <span>Cada</span>
+                      <span className="text-white">{trainingEvery} compases</span>
                     </div>
                     <Slider
                       value={[trainingEvery]}
@@ -1070,16 +1070,16 @@ export default function AdvancedMetronomeUI() {
                 <div className="rounded-2xl border border-white/12 bg-black/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm font-semibold text-white">Polyrhythm</div>
+                      <div className="text-sm font-semibold text-white">Polirritmo</div>
                       <div className="text-xs text-white/75">
-                        Secondary pulse against main meter
+                        Pulso secundario contra el compás principal
                       </div>
                     </div>
                     <Switch checked={polyEnabled} onCheckedChange={setPolyEnabled} />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label className="text-xs text-white/85">Beats</Label>
+                      <Label className="text-xs text-white/85">Pulsos</Label>
                       <div className="flex gap-2">
                         {[3, 4, 5, 7].map((value) => (
                           <SegButton
@@ -1093,7 +1093,7 @@ export default function AdvancedMetronomeUI() {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs text-white/85">Subdivision</Label>
+                      <Label className="text-xs text-white/85">Subdivisión</Label>
                       <select
                         value={polySubdivision}
                         onChange={(event) => setPolySubdivision(event.target.value)}
@@ -1109,7 +1109,7 @@ export default function AdvancedMetronomeUI() {
                   </div>
                   <div className="rounded-2xl border border-white/12 bg-black/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                     <div className="flex items-center justify-between text-xs text-white/80">
-                      <span>Poly volume</span>
+                      <span>Volumen del polirritmo</span>
                       <span className="text-white">{polyVolume}%</span>
                     </div>
                     <Slider
@@ -1122,12 +1122,12 @@ export default function AdvancedMetronomeUI() {
                   </div>
                 </div>
 
-                {/* Accents compact editor */}
+                {/* Editor compacto de acentos */}
                 <div className="rounded-2xl border border-white/12 bg-black/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm font-semibold text-white">Accents</div>
-                      <div className="text-xs text-white/80">Tap dots to toggle</div>
+                      <div className="text-sm font-semibold text-white">Acentos</div>
+                      <div className="text-xs text-white/80">Toca los puntos para alternar</div>
                     </div>
                     <Button
                       variant="outline"
@@ -1136,7 +1136,7 @@ export default function AdvancedMetronomeUI() {
                         setAccents(Array.from({ length: beats }, (_, i) => i === 0))
                       }
                     >
-                      Downbeat
+                      Tiempo fuerte
                     </Button>
                   </div>
 
@@ -1164,15 +1164,17 @@ export default function AdvancedMetronomeUI() {
                   </div>
 
                   <div className="mt-2 text-[11px] text-white/75 text-center">
-                    Note: shows first 12 beats; for big odd meters, add paging.
+                    Nota: muestra los primeros 12 pulsos; para compases grandes e irregulares, añade paginación.
                   </div>
                 </div>
 
                 <div className="rounded-2xl border border-white/12 bg-black/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm font-semibold text-white">Presets</div>
-                      <div className="text-xs text-white/75">Tap to recall, save slots</div>
+                      <div className="text-sm font-semibold text-white">Preajustes</div>
+                      <div className="text-xs text-white/75">
+                        Toca para recuperar, guarda en ranuras
+                      </div>
                     </div>
                     <Badge
                       variant="secondary"
@@ -1190,9 +1192,9 @@ export default function AdvancedMetronomeUI() {
                           className="rounded-2xl border border-white/12 bg-black/45 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
                         >
                           <div className="flex items-center justify-between text-xs text-white/80">
-                            <span>Slot {i + 1}</span>
+                            <span>Ranura {i + 1}</span>
                             <span className={hasPreset ? "text-emerald-300" : "text-white/60"}>
-                              {hasPreset ? "Saved" : "Empty"}
+                              {hasPreset ? "Guardado" : "Vacío"}
                             </span>
                           </div>
                           <div className="mt-2 flex gap-2">
@@ -1202,14 +1204,14 @@ export default function AdvancedMetronomeUI() {
                               onClick={() => loadPreset(i)}
                               disabled={!hasPreset}
                             >
-                              Load
+                              Cargar
                             </Button>
                             <Button
                               variant="outline"
                               className="h-8 flex-1 rounded-2xl text-white border border-white/15 bg-[linear-gradient(180deg,rgba(168,85,247,0.30),rgba(168,85,247,0.12))] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_10px_16px_rgba(0,0,0,0.35)] hover:brightness-110"
                               onClick={() => savePreset(i)}
                             >
-                              Save
+                              Guardar
                             </Button>
                           </div>
                         </div>
@@ -1221,8 +1223,10 @@ export default function AdvancedMetronomeUI() {
                 <div className="rounded-2xl border border-white/12 bg-black/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] space-y-2">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm font-semibold text-white">Config transfer</div>
-                      <div className="text-xs text-white/75">Copy or paste JSON snapshot</div>
+                      <div className="text-sm font-semibold text-white">
+                        Transferencia de configuración
+                      </div>
+                      <div className="text-xs text-white/75">Copia o pega la instantánea JSON</div>
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -1231,14 +1235,14 @@ export default function AdvancedMetronomeUI() {
                       className="h-9 flex-1 rounded-2xl text-white border border-white/15 bg-[linear-gradient(180deg,rgba(56,189,248,0.28),rgba(56,189,248,0.10))] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_10px_16px_rgba(0,0,0,0.35)] hover:brightness-110"
                       onClick={exportConfig}
                     >
-                      Export
+                      Exportar
                     </Button>
                     <Button
                       variant="outline"
                       className="h-9 flex-1 rounded-2xl text-white border border-white/15 bg-[linear-gradient(180deg,rgba(251,146,60,0.40),rgba(251,146,60,0.12))] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_10px_16px_rgba(0,0,0,0.35)] hover:brightness-110"
                       onClick={importConfig}
                     >
-                      Import
+                      Importar
                     </Button>
                   </div>
                 </div>
@@ -1248,7 +1252,7 @@ export default function AdvancedMetronomeUI() {
         </Card>
 
         <div className="w-full text-center text-xs text-white/70">
-          Compact hardware-style panel. Good for Mac widgets and iPad/iPhone layouts.
+          Panel compacto de estilo hardware. Ideal para widgets de Mac y diseños de iPad/iPhone.
         </div>
       </div>
     </div>
