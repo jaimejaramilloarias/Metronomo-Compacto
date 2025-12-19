@@ -456,26 +456,22 @@ export default function AdvancedMetronomeUI() {
     osc.stop(time + decay + 0.02);
   };
 
-  const computeMeasureDuration = () => {
-    const contextBeat = 60 / bpmRef.current;
-    const beatDuration = contextBeat * (4 / unitRef.current);
-    return beatDuration * beatsRef.current;
-  };
-
-  const computeStepDuration = (stepIndex: number) => {
-    const contextBeat = 60 / bpmRef.current;
-    const beatDuration = contextBeat * (4 / unitRef.current);
+  const getTimingSnapshot = () => {
+    const beatDuration = (60 / bpmRef.current) * (4 / unitRef.current);
     const subdivisionsPerBeat = getSubdivisionsPerBeat(subdivisionRef.current);
     const baseSubdivision = beatDuration / subdivisionsPerBeat;
     const swingAmount = Math.min(0.75, Math.max(0, swingRef.current / 100));
-    const appliesSwing = swingAmount > 0 && subdivisionsPerBeat % 2 === 0;
-    if (!appliesSwing) {
-      return baseSubdivision;
-    }
-
-    const pairIndex = stepIndex % 2;
-    const swingFactor = 1 + (pairIndex === 0 ? swingAmount : -swingAmount) * 0.5;
-    return baseSubdivision * swingFactor;
+    const swingEnabled = swingAmount > 0 && subdivisionsPerBeat % 2 === 0;
+    const swingFactors = swingEnabled
+      ? [1 + swingAmount * 0.5, 1 - swingAmount * 0.5]
+      : [1, 1];
+    return {
+      beatDuration,
+      subdivisionsPerBeat,
+      baseSubdivision,
+      swingEnabled,
+      swingFactors,
+    };
   };
 
   const schedulerLoop = () => {
@@ -483,12 +479,12 @@ export default function AdvancedMetronomeUI() {
     if (!context || !isRunningRef.current) return;
 
     const scheduleAhead = 0.12;
+    const timing = getTimingSnapshot();
     while (nextNoteTimeRef.current < context.currentTime + scheduleAhead) {
-      const subdivisionsPerBeat = getSubdivisionsPerBeat(subdivisionRef.current);
-      const totalSteps = Math.max(1, beatsRef.current * subdivisionsPerBeat);
+      const totalSteps = Math.max(1, beatsRef.current * timing.subdivisionsPerBeat);
       const stepIndex = currentStepRef.current % totalSteps;
-      const beatIndex = Math.floor(stepIndex / subdivisionsPerBeat);
-      const subIndex = stepIndex % subdivisionsPerBeat;
+      const beatIndex = Math.floor(stepIndex / timing.subdivisionsPerBeat);
+      const subIndex = stepIndex % timing.subdivisionsPerBeat;
       const accentsForBeat = accentsRef.current?.[beatIndex] ?? beatIndex === 0;
       const isBeatStart = subIndex === 0;
       const accented = isBeatStart && accentsForBeat;
@@ -516,7 +512,8 @@ export default function AdvancedMetronomeUI() {
         }
       }
 
-      const stepDuration = computeStepDuration(stepIndex);
+      const stepDuration = timing.baseSubdivision *
+        (timing.swingEnabled ? timing.swingFactors[stepIndex % 2] : 1);
       nextNoteTimeRef.current += stepDuration;
       currentStepRef.current = stepIndex + 1;
     }
@@ -524,7 +521,7 @@ export default function AdvancedMetronomeUI() {
     if (polyEnabledRef.current) {
       const polySubdivisions = getSubdivisionsPerBeat(polySubdivisionRef.current);
       const polyTotalSteps = Math.max(1, polyBeatsRef.current * polySubdivisions);
-      const measureDuration = computeMeasureDuration();
+      const measureDuration = timing.beatDuration * beatsRef.current;
       const polyStepDuration = measureDuration / polyTotalSteps;
       if (polyNextNoteTimeRef.current < context.currentTime - scheduleAhead) {
         polyNextNoteTimeRef.current = context.currentTime + 0.01;
@@ -546,7 +543,7 @@ export default function AdvancedMetronomeUI() {
     }
 
     if (visualPulseRef.current) {
-      const measureDuration = computeMeasureDuration();
+      const measureDuration = timing.beatDuration * beatsRef.current;
       const elapsed = Math.max(0, context.currentTime - measureStartRef.current);
       const progress = measureDuration > 0 ? (elapsed / measureDuration) * 100 : 0;
       const nextPhase = clamp(progress, 0, 100);

@@ -12,3 +12,5 @@ Tareas progresivas del metronomo
 [10] [x] Guardar/restaurar automáticamente la última configuración activa.
 [11] [x] Reducir renders del scheduler con refs sincronizadas y fase protegida.
 [12] [x] Debounce de persistencia local para evitar escrituras excesivas.
+[13] [x] Consolidar cálculos de timing por ciclo del scheduler.
+[14] [x] Reducir recomputo de swing/subdivisión dentro del loop de audio.
