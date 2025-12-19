@@ -1,12 +1,12 @@
-# Advanced Metronome
+# Metrónomo Jaramillo
 
-Hardware-style advanced metronome built with Vite + React and Web Audio API.
+Metrónomo avanzado de estilo hardware construido con Vite + React y la Web Audio API.
 
-## Install & Run
+## Instalación y ejecución
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open the local URL Vite prints (typically http://localhost:5173).
+Abre la URL local que imprime Vite (normalmente http://localhost:5173).
