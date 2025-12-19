@@ -26,11 +26,11 @@ import {
  * Works well as a small “physical device” panel for Mac/iPad/iPhone.
  */
 
-function clamp(n: number, min: number, max: number) {
+function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
 }
 
-function parseBeats(ts: string) {
+function parseBeats(ts) {
   const [top, bottom] = ts.split("/").map((x) => parseInt(x, 10));
   return {
     beats: Number.isFinite(top) ? top : 4,
@@ -38,17 +38,16 @@ function parseBeats(ts: string) {
   };
 }
 
-function formatSwingLabel(v: number) {
+function formatSwingLabel(v) {
   if (v <= 0) return "Straight";
   if (v < 45) return "Light";
   if (v < 60) return "Medium";
   return "Heavy";
 }
 
-const SUBDIVISIONS = ["1/4", "1/8", "1/8T", "1/16"] as const;
-type Subdivision = (typeof SUBDIVISIONS)[number];
+const SUBDIVISIONS = ["1/4", "1/8", "1/8T", "1/16"];
 
-function getSubdivisionsPerBeat(value: Subdivision) {
+function getSubdivisionsPerBeat(value) {
   switch (value) {
     case "1/4":
       return 1;
@@ -68,16 +67,16 @@ const STORAGE_KEY = "metronome-presets-v1";
 const LAST_CONFIG_KEY = "metronome-last-config-v1";
 const EXPORT_VERSION = 1;
 
-function normalizeBooleanArray(value: unknown, length: number) {
+function normalizeBooleanArray(value, length) {
   const list = Array.isArray(value) ? value : [];
   return Array.from({ length }, (_, i) => Boolean(list[i]));
 }
 
-function buildAccentArray(length: number, base: boolean[] = []) {
+function buildAccentArray(length, base = []) {
   return Array.from({ length }, (_, i) => base?.[i] ?? i === 0);
 }
 
-function normalizeConfig(raw: any) {
+function normalizeConfig(raw) {
   const bpm = clamp(Number(raw?.bpm) || 120, 20, 300);
   const ts = typeof raw?.ts === "string" ? raw.ts : "4/4";
   const { beats } = parseBeats(ts);
@@ -109,7 +108,7 @@ function normalizeConfig(raw: any) {
   };
 }
 
-function useSyncedRef<T>(value: T) {
+function useSyncedRef(value) {
   const ref = useRef(value);
   useEffect(() => {
     ref.current = value;
@@ -151,7 +150,6 @@ function runSelfTests() {
   console.assert(config.polyVolume === 45, "normalizeConfig polyVolume failed");
   console.assert(config.accents.length === 7, "normalizeConfig accents length failed");
 }
-// @ts-expect-error guarded
 if (
   typeof window === "undefined" &&
   typeof process !== "undefined" &&
@@ -160,7 +158,7 @@ if (
   runSelfTests();
 }
 
-function SegButton({ active, children, onClick }: any) {
+function SegButton({ active, children, onClick }) {
   return (
     <button
       type="button"
@@ -177,7 +175,7 @@ function SegButton({ active, children, onClick }: any) {
   );
 }
 
-function TinyDotRow({ beats, accents }: { beats: number; accents: boolean[] }) {
+function TinyDotRow({ beats, accents }) {
   const cells = Array.from({ length: Math.min(beats, 12) }, (_, i) => accents?.[i] ?? i === 0);
   return (
     <div className="flex items-center justify-center gap-2">
@@ -204,14 +202,14 @@ export default function AdvancedMetronomeUI() {
   const [ts, setTs] = useState("4/4");
   const { beats, unit } = useMemo(() => parseBeats(ts), [ts]);
 
-  const [subdivision, setSubdivision] = useState<Subdivision>("1/8");
+  const [subdivision, setSubdivision] = useState("1/8");
   const [swing, setSwing] = useState(0);
   const swingLabel = useMemo(() => formatSwingLabel(swing), [swing]);
 
   const [volume, setVolume] = useState(70);
   const [polyEnabled, setPolyEnabled] = useState(false);
   const [polyBeats, setPolyBeats] = useState(3);
-  const [polySubdivision, setPolySubdivision] = useState<Subdivision>("1/4");
+  const [polySubdivision, setPolySubdivision] = useState("1/4");
   const [polyVolume, setPolyVolume] = useState(55);
   const [visualPulse, setVisualPulse] = useState(true);
   const [phase, setPhase] = useState(35);
@@ -220,21 +218,21 @@ export default function AdvancedMetronomeUI() {
   const [presetTick, setPresetTick] = useState(0);
 
   // Accents as a compact "pattern" – tap to toggle in drawer.
-  const [accents, setAccents] = useState<boolean[]>([true, false, false, false]);
+  const [accents, setAccents] = useState([true, false, false, false]);
 
   const [trainingMode, setTrainingMode] = useState(false);
   const [trainingStep, setTrainingStep] = useState(2);
   const [trainingEvery, setTrainingEvery] = useState(4);
 
   // UI-only: quick tap tempo
-  const [tapHistory, setTapHistory] = useState<number[]>([]);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const masterGainRef = useRef<GainNode | null>(null);
+  const [tapHistory, setTapHistory] = useState([]);
+  const audioContextRef = useRef(null);
+  const masterGainRef = useRef(null);
   const isRunningRef = useRef(false);
   const nextNoteTimeRef = useRef(0);
   const currentStepRef = useRef(0);
   const measureStartRef = useRef(0);
-  const rafIdRef = useRef<number | null>(null);
+  const rafIdRef = useRef(null);
   const bpmRef = useSyncedRef(bpm);
   const beatsRef = useSyncedRef(beats);
   const unitRef = useSyncedRef(unit);
@@ -248,7 +246,7 @@ export default function AdvancedMetronomeUI() {
   const polyVolumeRef = useSyncedRef(polyVolume);
   const visualPulseRef = useSyncedRef(visualPulse);
   const tempoLockRef = useSyncedRef(tempoLock);
-  const presetsRef = useRef<any[]>([]);
+  const presetsRef = useRef([]);
   const trainingModeRef = useSyncedRef(trainingMode);
   const trainingStepRef = useSyncedRef(trainingStep);
   const trainingEveryRef = useSyncedRef(trainingEvery);
@@ -323,7 +321,7 @@ export default function AdvancedMetronomeUI() {
     accents: accentsRef.current,
   });
 
-  const applyConfig = (raw: any) => {
+  const applyConfig = (raw) => {
     const config = normalizeConfig(raw);
     const next = parseBeats(config.ts);
     if (!tempoLockRef.current) {
@@ -352,12 +350,12 @@ export default function AdvancedMetronomeUI() {
     }
   }, []);
 
-  const persistPresets = (presets: any[]) => {
+  const persistPresets = (presets) => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(presets));
   };
 
-  const savePreset = (slot: number) => {
+  const savePreset = (slot) => {
     const current = getConfigSnapshot();
     const presets = Array.from({ length: PRESET_SLOTS }, (_, i) =>
       presetsRef.current[i] ? normalizeConfig(presetsRef.current[i]) : null
@@ -368,7 +366,7 @@ export default function AdvancedMetronomeUI() {
     setPresetTick((value) => value + 1);
   };
 
-  const loadPreset = (slot: number) => {
+  const loadPreset = (slot) => {
     const preset = presetsRef.current[slot];
     if (preset) {
       applyConfig(preset);
@@ -427,10 +425,10 @@ export default function AdvancedMetronomeUI() {
   ]);
 
   const scheduleClick = (
-    time: number,
-    accented: boolean,
+    time,
+    accented,
     intensity = 1,
-    frequency?: number
+    frequency
   ) => {
     const context = audioContextRef.current;
     const master = masterGainRef.current;
@@ -608,7 +606,7 @@ export default function AdvancedMetronomeUI() {
     });
   };
 
-  const bumpBpm = (delta: number) => {
+  const bumpBpm = (delta) => {
     if (tempoLock) return;
     setBpm((v) => clamp(v + delta, 20, 300));
   };
@@ -637,7 +635,7 @@ export default function AdvancedMetronomeUI() {
     setPhase(35);
   };
 
-  const toggleAccent = (i: number) => {
+  const toggleAccent = (i) => {
     const next = buildAccentArray(beats, accents);
     next[i] = !next[i];
     setAccents(next);
@@ -659,7 +657,7 @@ export default function AdvancedMetronomeUI() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const handleKeydown = (event: KeyboardEvent) => {
+    const handleKeydown = (event) => {
       if (!(event.ctrlKey || event.metaKey)) return;
       const digit = Number(event.key);
       if (Number.isFinite(digit) && digit >= 1 && digit <= PRESET_SLOTS) {
