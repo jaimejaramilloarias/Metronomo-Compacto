@@ -69,6 +69,10 @@ function normalizeBooleanArray(value: unknown, length: number) {
   return Array.from({ length }, (_, i) => Boolean(list[i]));
 }
 
+function buildAccentArray(length: number, base: boolean[] = []) {
+  return Array.from({ length }, (_, i) => base?.[i] ?? i === 0);
+}
+
 function normalizeConfig(raw: any) {
   const bpm = clamp(Number(raw?.bpm) || 120, 20, 300);
   const ts = typeof raw?.ts === "string" ? raw.ts : "4/4";
@@ -171,6 +175,7 @@ export default function AdvancedMetronomeUI() {
   const [phase, setPhase] = useState(35);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [presetTick, setPresetTick] = useState(0);
 
   // Accents as a compact "pattern" – tap to toggle in drawer.
   const [accents, setAccents] = useState<boolean[]>([true, false, false, false]);
@@ -216,9 +221,7 @@ export default function AdvancedMetronomeUI() {
   }, [beats]);
 
   useEffect(() => {
-    setAccents((prev) =>
-      Array.from({ length: beats }, (_, i) => prev?.[i] ?? i === 0)
-    );
+    setAccents((prev) => buildAccentArray(beats, prev));
   }, [beats]);
 
   useEffect(() => {
@@ -325,12 +328,14 @@ export default function AdvancedMetronomeUI() {
     presets[slot] = normalizeConfig(current);
     presetsRef.current = presets;
     persistPresets(presets);
+    setPresetTick((value) => value + 1);
   };
 
   const loadPreset = (slot: number) => {
     const preset = presetsRef.current[slot];
     if (preset) {
       applyConfig(preset);
+      setPresetTick((value) => value + 1);
     }
   };
 
@@ -517,7 +522,7 @@ export default function AdvancedMetronomeUI() {
     setSwing(0);
     setVolume(70);
     setVisualPulse(true);
-    setAccents([true, false, false, false]);
+    setAccents(buildAccentArray(4));
     setTrainingMode(false);
     setTrainingStep(2);
     setTrainingEvery(4);
@@ -526,10 +531,15 @@ export default function AdvancedMetronomeUI() {
   };
 
   const toggleAccent = (i: number) => {
-    const next = Array.from({ length: beats }, (_, idx) => accents?.[idx] ?? idx === 0);
+    const next = buildAccentArray(beats, accents);
     next[i] = !next[i];
     setAccents(next);
   };
+
+  const presetSlots = useMemo(
+    () => Array.from({ length: PRESET_SLOTS }, (_, i) => Boolean(presetsRef.current[i])),
+    [presetTick]
+  );
 
   useEffect(() => {
     return () => {
@@ -849,6 +859,44 @@ export default function AdvancedMetronomeUI() {
                   <Switch checked={visualPulse} onCheckedChange={setVisualPulse} />
                 </div>
 
+                <div className="rounded-2xl border border-white/12 bg-black/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-semibold text-white">Training mode</div>
+                      <div className="text-xs text-white/75">
+                        Auto-increase tempo while playing
+                      </div>
+                    </div>
+                    <Switch checked={trainingMode} onCheckedChange={setTrainingMode} />
+                  </div>
+                  <div className="rounded-2xl border border-white/12 bg-black/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                    <div className="flex items-center justify-between text-xs text-white/80">
+                      <span>Increase by</span>
+                      <span className="text-white">{trainingStep} BPM</span>
+                    </div>
+                    <Slider
+                      value={[trainingStep]}
+                      min={1}
+                      max={12}
+                      step={1}
+                      onValueChange={(v) => setTrainingStep(v[0])}
+                    />
+                  </div>
+                  <div className="rounded-2xl border border-white/12 bg-black/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                    <div className="flex items-center justify-between text-xs text-white/80">
+                      <span>Every</span>
+                      <span className="text-white">{trainingEvery} measures</span>
+                    </div>
+                    <Slider
+                      value={[trainingEvery]}
+                      min={1}
+                      max={12}
+                      step={1}
+                      onValueChange={(v) => setTrainingEvery(v[0])}
+                    />
+                  </div>
+                </div>
+
                 {/* Accents compact editor */}
                 <div className="rounded-2xl border border-white/12 bg-black/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                   <div className="flex items-center justify-between">
@@ -892,6 +940,81 @@ export default function AdvancedMetronomeUI() {
 
                   <div className="mt-2 text-[11px] text-white/75 text-center">
                     Note: shows first 12 beats; for big odd meters, add paging.
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/12 bg-black/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-semibold text-white">Presets</div>
+                      <div className="text-xs text-white/75">Tap to recall, save slots</div>
+                    </div>
+                    <Badge
+                      variant="secondary"
+                      className="rounded-full bg-white/10 text-white border border-white/15"
+                    >
+                      {presetSlots.filter(Boolean).length}/{PRESET_SLOTS}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Array.from({ length: PRESET_SLOTS }).map((_, i) => {
+                      const hasPreset = presetSlots[i];
+                      return (
+                        <div
+                          key={`preset-${i}`}
+                          className="rounded-2xl border border-white/12 bg-black/45 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                        >
+                          <div className="flex items-center justify-between text-xs text-white/80">
+                            <span>Slot {i + 1}</span>
+                            <span className={hasPreset ? "text-emerald-300" : "text-white/60"}>
+                              {hasPreset ? "Saved" : "Empty"}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex gap-2">
+                            <Button
+                              variant="outline"
+                              className="h-8 flex-1 rounded-2xl text-white border border-white/15 bg-[linear-gradient(180deg,rgba(56,189,248,0.28),rgba(56,189,248,0.10))] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_10px_16px_rgba(0,0,0,0.35)] hover:brightness-110"
+                              onClick={() => loadPreset(i)}
+                              disabled={!hasPreset}
+                            >
+                              Load
+                            </Button>
+                            <Button
+                              variant="outline"
+                              className="h-8 flex-1 rounded-2xl text-white border border-white/15 bg-[linear-gradient(180deg,rgba(168,85,247,0.30),rgba(168,85,247,0.12))] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_10px_16px_rgba(0,0,0,0.35)] hover:brightness-110"
+                              onClick={() => savePreset(i)}
+                            >
+                              Save
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/12 bg-black/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-semibold text-white">Config transfer</div>
+                      <div className="text-xs text-white/75">Copy or paste JSON snapshot</div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="h-9 flex-1 rounded-2xl text-white border border-white/15 bg-[linear-gradient(180deg,rgba(56,189,248,0.28),rgba(56,189,248,0.10))] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_10px_16px_rgba(0,0,0,0.35)] hover:brightness-110"
+                      onClick={exportConfig}
+                    >
+                      Export
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-9 flex-1 rounded-2xl text-white border border-white/15 bg-[linear-gradient(180deg,rgba(251,146,60,0.40),rgba(251,146,60,0.12))] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_10px_16px_rgba(0,0,0,0.35)] hover:brightness-110"
+                      onClick={importConfig}
+                    >
+                      Import
+                    </Button>
                   </div>
                 </div>
               </div>
