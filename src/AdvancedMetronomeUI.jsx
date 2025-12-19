@@ -45,7 +45,27 @@ function formatSwingLabel(v) {
   return "Heavy";
 }
 
-const SUBDIVISIONS = ["1/4", "1/8", "1/8T", "1/16"];
+const TIME_SIGNATURES = [
+  "2/2",
+  "2/4",
+  "3/4",
+  "4/4",
+  "5/4",
+  "6/4",
+  "7/4",
+  "3/8",
+  "5/8",
+  "6/8",
+  "7/8",
+  "9/8",
+  "12/8",
+  "5/16",
+  "7/16",
+  "9/16",
+  "11/16",
+  "13/16",
+];
+const SUBDIVISIONS = ["1/4", "1/8", "1/8T", "1/16", "1/16T", "1/32", "1/32T", "1/64"];
 
 function getSubdivisionsPerBeat(value) {
   switch (value) {
@@ -57,6 +77,14 @@ function getSubdivisionsPerBeat(value) {
       return 3;
     case "1/16":
       return 4;
+    case "1/16T":
+      return 6;
+    case "1/32":
+      return 8;
+    case "1/32T":
+      return 12;
+    case "1/64":
+      return 16;
     default:
       return 2;
   }
@@ -78,7 +106,10 @@ function buildAccentArray(length, base = []) {
 
 function normalizeConfig(raw) {
   const bpm = clamp(Number(raw?.bpm) || 120, 20, 300);
-  const ts = typeof raw?.ts === "string" ? raw.ts : "4/4";
+  const ts =
+    typeof raw?.ts === "string" && TIME_SIGNATURES.includes(raw.ts)
+      ? raw.ts
+      : "4/4";
   const { beats } = parseBeats(ts);
   const subdivision = SUBDIVISIONS.includes(raw?.subdivision)
     ? raw.subdivision
@@ -175,21 +206,30 @@ function SegButton({ active, children, onClick }) {
   );
 }
 
-function TinyDotRow({ beats, accents }) {
-  const cells = Array.from({ length: Math.min(beats, 12) }, (_, i) => accents?.[i] ?? i === 0);
+function TinyDotRow({ beats, accents, activeIndex }) {
+  const count = Math.max(1, beats);
+  const cells = Array.from({ length: count }, (_, i) => accents?.[i] ?? i === 0);
+  const dense = count > 12;
   return (
-    <div className="flex items-center justify-center gap-2">
-      {cells.map((on, i) => (
+    <div className="flex flex-wrap items-center justify-center gap-2">
+      {cells.map((on, i) => {
+        const isActive = Number.isFinite(activeIndex) && i === activeIndex;
+        return (
         <div
           key={i}
           className={
-            "h-2.5 w-2.5 rounded-full border transition " +
-            (on
+            "rounded-full border transition-all duration-500 ease-out " +
+            (dense ? "h-2 w-2" : "h-2.5 w-2.5") +
+            " " +
+            (isActive
+              ? "bg-sky-200 border-sky-100 shadow-[0_0_16px_rgba(56,189,248,0.9),0_0_30px_rgba(56,189,248,0.55)]"
+              : on
               ? "bg-emerald-400/90 border-emerald-300 shadow-[0_0_12px_rgba(34,197,94,0.45)]"
               : "bg-white/10 border-white/15")
           }
         />
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -212,7 +252,8 @@ export default function AdvancedMetronomeUI() {
   const [polySubdivision, setPolySubdivision] = useState("1/4");
   const [polyVolume, setPolyVolume] = useState(55);
   const [visualPulse, setVisualPulse] = useState(true);
-  const [phase, setPhase] = useState(35);
+  const [phase, setPhase] = useState(0);
+  const [currentBeat, setCurrentBeat] = useState(0);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [presetTick, setPresetTick] = useState(0);
@@ -254,9 +295,12 @@ export default function AdvancedMetronomeUI() {
   const polyNextNoteTimeRef = useRef(0);
   const polyStepRef = useRef(0);
   const phaseRef = useRef(phase);
+  const currentBeatRef = useRef(currentBeat);
 
   useEffect(() => {
     setAccents((prev) => buildAccentArray(beats, prev));
+    setCurrentBeat(0);
+    currentBeatRef.current = 0;
   }, [beats]);
 
   useEffect(() => {
@@ -279,6 +323,10 @@ export default function AdvancedMetronomeUI() {
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
+
+  useEffect(() => {
+    currentBeatRef.current = currentBeat;
+  }, [currentBeat]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -488,6 +536,11 @@ export default function AdvancedMetronomeUI() {
       const accented = isBeatStart && accentsForBeat;
       scheduleClick(nextNoteTimeRef.current, accented, 1);
 
+      if (isBeatStart && beatIndex !== currentBeatRef.current) {
+        currentBeatRef.current = beatIndex;
+        setCurrentBeat(beatIndex);
+      }
+
       if (stepIndex === 0) {
         measureStartRef.current = nextNoteTimeRef.current;
         measureCountRef.current += 1;
@@ -572,6 +625,10 @@ export default function AdvancedMetronomeUI() {
     measureCountRef.current = 0;
     polyStepRef.current = 0;
     polyNextNoteTimeRef.current = nextNoteTimeRef.current;
+    currentBeatRef.current = 0;
+    setCurrentBeat(0);
+    phaseRef.current = 0;
+    setPhase(0);
     rafIdRef.current = requestAnimationFrame(schedulerLoop);
   };
 
@@ -583,6 +640,8 @@ export default function AdvancedMetronomeUI() {
       rafIdRef.current = null;
     }
     setPhase(0);
+    currentBeatRef.current = 0;
+    setCurrentBeat(0);
   };
   const tap = () => {
     if (isRunningRef.current) return;
@@ -632,7 +691,8 @@ export default function AdvancedMetronomeUI() {
     setTrainingStep(2);
     setTrainingEvery(4);
     setTapHistory([]);
-    setPhase(35);
+    setPhase(0);
+    setCurrentBeat(0);
   };
 
   const toggleAccent = (i) => {
@@ -820,7 +880,11 @@ export default function AdvancedMetronomeUI() {
                     </button>
                   </div>
                   <div className="mt-3">
-                    <TinyDotRow beats={beats} accents={accents} />
+                    <TinyDotRow
+                      beats={beats}
+                      accents={accents}
+                      activeIndex={isRunning ? currentBeat : null}
+                    />
                   </div>
                   <div className="mt-3">
                     <div className="relative">
@@ -881,31 +945,32 @@ export default function AdvancedMetronomeUI() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label className="text-xs text-white/85">Time signature</Label>
-                    <div className="flex gap-2">
-                      {["3/4", "4/4", "6/8", "7/8"].map((x) => (
-                        <SegButton key={x} active={ts === x} onClick={() => setTs(x)}>
-                          {x}
-                        </SegButton>
+                    <select
+                      value={ts}
+                      onChange={(event) => setTs(event.target.value)}
+                      className="w-full rounded-2xl border border-white/15 bg-black/60 px-3 py-2 text-sm text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] focus:outline-none focus:ring-2 focus:ring-sky-400/60"
+                    >
+                      {TIME_SIGNATURES.map((value) => (
+                        <option key={value} value={value} className="bg-slate-900">
+                          {value}
+                        </option>
                       ))}
-                    </div>
-                    <div className="text-[11px] text-white/75">
-                      For full list later: add a picker.
-                    </div>
+                    </select>
                   </div>
 
                   <div className="space-y-2">
                     <Label className="text-xs text-white/85">Subdivision</Label>
-                    <div className="flex gap-2">
-                      {SUBDIVISIONS.map((x) => (
-                        <SegButton
-                          key={x}
-                          active={subdivision === x}
-                          onClick={() => setSubdivision(x)}
-                        >
-                          {x}
-                        </SegButton>
+                    <select
+                      value={subdivision}
+                      onChange={(event) => setSubdivision(event.target.value)}
+                      className="w-full rounded-2xl border border-white/15 bg-black/60 px-3 py-2 text-sm text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] focus:outline-none focus:ring-2 focus:ring-sky-400/60"
+                    >
+                      {SUBDIVISIONS.map((value) => (
+                        <option key={value} value={value} className="bg-slate-900">
+                          {value}
+                        </option>
                       ))}
-                    </div>
+                    </select>
                   </div>
                 </div>
 
@@ -1029,17 +1094,17 @@ export default function AdvancedMetronomeUI() {
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs text-white/85">Subdivision</Label>
-                      <div className="flex gap-2">
+                      <select
+                        value={polySubdivision}
+                        onChange={(event) => setPolySubdivision(event.target.value)}
+                        className="w-full rounded-2xl border border-white/15 bg-black/60 px-3 py-2 text-sm text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] focus:outline-none focus:ring-2 focus:ring-sky-400/60"
+                      >
                         {SUBDIVISIONS.map((value) => (
-                          <SegButton
-                            key={value}
-                            active={polySubdivision === value}
-                            onClick={() => setPolySubdivision(value)}
-                          >
+                          <option key={value} value={value} className="bg-slate-900">
                             {value}
-                          </SegButton>
+                          </option>
                         ))}
-                      </div>
+                      </select>
                     </div>
                   </div>
                   <div className="rounded-2xl border border-white/12 bg-black/45 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
