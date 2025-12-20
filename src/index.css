@@ -6,6 +6,22 @@
   color-scheme: dark;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
-  @apply bg-[#0b0b0f] text-white font-sans;
+  @apply text-white font-sans;
+  margin: 0;
+  background: transparent;
+}
+
+#root {
+  background: #0b0b0f;
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
 }
