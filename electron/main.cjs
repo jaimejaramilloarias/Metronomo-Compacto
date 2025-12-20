@@ -10,16 +10,13 @@ const WINDOW_HEIGHT = 560;
 const WINDOW_MARGIN = 8;
 
 const getTrayIcon = () => {
-  const trayIconPath = path.join(
-    __dirname,
-    "..",
-    "build-resources",
-    "trayTemplate.png"
-  );
-  const image = nativeImage.createFromPath(trayIconPath);
-  if (!image.isEmpty()) {
-    image.setTemplateImage(true);
-  }
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
+      <path fill="black" d="M3.5 14.5h11a.75.75 0 0 0 .75-.75v-7A3.75 3.75 0 0 0 11.5 3h-5A3.75 3.75 0 0 0 2.75 6.75v7c0 .414.336.75.75.75Zm3-9.5h5a2.25 2.25 0 0 1 2.25 2.25V13h-9V7.25A2.25 2.25 0 0 1 6.5 5Zm1 1.5a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Zm0 3a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Z"/>
+    </svg>
+  `;
+  const image = nativeImage.createFromBuffer(Buffer.from(svg));
+  image.setTemplateImage(true);
   return image;
 };
 
@@ -33,13 +30,11 @@ const createPanelWindow = () => {
     fullscreenable: false,
     skipTaskbar: true,
     alwaysOnTop: true,
-    transparent: true,
-    backgroundColor: "#1b1d24",
+    transparent: false,
+    backgroundColor: "#0b0f16",
     hasShadow: true,
     titleBarStyle: "customButtonsOnHover",
     roundedCorners: true,
-    vibrancy: "popover",
-    visualEffectState: "active",
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

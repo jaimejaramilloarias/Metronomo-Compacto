@@ -15,13 +15,17 @@ body,
 body {
   @apply text-white font-sans;
   margin: 0;
-  background: transparent;
+  background: #0b0f16;
 }
 
 #root {
-  background: #0b0b0f;
+  background: #0b0f16;
   border-radius: 16px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.08);
   overflow: hidden;
+}
+
+html {
+  background: #0b0f16;
 }
