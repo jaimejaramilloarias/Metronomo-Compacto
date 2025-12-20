@@ -8,8 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "postinstall": "node scripts/generate-assets.cjs",
-    "dist:mac": "node scripts/generate-assets.cjs && vite build && electron-builder -m"
+    "dist:mac": "vite build && electron-builder -m"
   },
   "dependencies": {
     "@radix-ui/react-progress": "^1.0.3",
@@ -35,10 +34,15 @@
   "build": {
     "appId": "com.local.metronomo",
     "productName": "Metronomo",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "build-resources/**/*",
+      "package.json"
+    ],
     "mac": {
       "target": ["dmg", "zip"],
-      "category": "public.app-category.music",
-      "icon": "build-resources/icon.icns"
+      "category": "public.app-category.music"
     }
   }
 }

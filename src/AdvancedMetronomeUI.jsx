@@ -749,8 +749,9 @@ export default function AdvancedMetronomeUI() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(900px_circle_at_20%_0%,rgba(56,189,248,0.10),transparent_55%),radial-gradient(700px_circle_at_85%_15%,rgba(168,85,247,0.12),transparent_55%),radial-gradient(900px_circle_at_60%_120%,rgba(34,197,94,0.10),transparent_60%),linear-gradient(180deg,#05070b,#0b0f16)] p-4">
-      <div className="mx-auto flex max-w-md flex-col items-center gap-4">
+    <div className="flex h-full flex-col bg-[radial-gradient(900px_circle_at_20%_0%,rgba(56,189,248,0.10),transparent_55%),radial-gradient(700px_circle_at_85%_15%,rgba(168,85,247,0.12),transparent_55%),radial-gradient(900px_circle_at_60%_120%,rgba(34,197,94,0.10),transparent_60%),linear-gradient(180deg,#05070b,#0b0f16)]">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden p-4">
+        <div className="mx-auto flex max-w-md flex-col items-center gap-4">
         <Card className="relative w-full rounded-[2.25rem] text-white border border-white/15 bg-[linear-gradient(180deg,#1b222c,#0b0f14_55%,#070a0f)] shadow-[0_22px_60px_rgba(0,0,0,0.75)]">
           {/* Dark metal bezel + specular highlights */}
           <div className="pointer-events-none absolute inset-0 rounded-[2.25rem] ring-1 ring-white/10" />
@@ -1253,6 +1254,7 @@ export default function AdvancedMetronomeUI() {
 
         <div className="w-full text-center text-xs text-white/70">
           Panel compacto de estilo hardware. Ideal para widgets de Mac y diseños de iPad/iPhone.
+        </div>
         </div>
       </div>
     </div>
