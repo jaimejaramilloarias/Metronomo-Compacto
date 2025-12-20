@@ -1,12 +1,6 @@
-# Metrónomo Jaramillo
-
-Metrónomo avanzado de estilo hardware construido con Vite + React y la Web Audio API.
-
-## Instalación y ejecución
-
-```bash
 npm install
-npm run dev
-```
+npm run dist:mac
 
-Abre la URL local que imprime Vite (normalmente http://localhost:5173).
+Artifacts will be created in dist/:
+- dist/Metronomo.dmg
+- dist/Metronomo.zip
